@@ -35,8 +35,8 @@ namespace Capgemini.PMESP.SpreadsheetImport.Services
 
                     if (isValid)
                     {
-                        await SaveImportAsync(products);
-                        return new ImportResponse { Success = true };
+                        int importId = await SaveImportAsync(products);
+                        return new ImportResponse { ImportId = importId, Success = true };
                     }
                     else
                     {
@@ -50,7 +50,7 @@ namespace Capgemini.PMESP.SpreadsheetImport.Services
             }
         }
 
-        private async Task SaveImportAsync(List<Product> products)
+        private async Task<int> SaveImportAsync(List<Product> products)
         {
             var import = new Import { Date = DateTime.Now };
 
@@ -67,14 +67,18 @@ namespace Capgemini.PMESP.SpreadsheetImport.Services
                 await _context.SaveChangesAsync();
             }
 
-            return;
+            return import.Id;
         }
 
         private bool ValidateSpreadsheet(IXLWorksheet ws, List<Product> products, List<ImportError> errors)
         {
+            // number of rows used (empty rows aren't considered)
+            int rows = ws.RowsUsed().Count();
+
             // i = 2 --> first row after header
-            for (int i = 2; i <= ws.RowsUsed().Count(); i++)
+            for (int i = 2; i <= rows; i++)
             {
+                int empty = 0;
                 DateTime date = DateTime.Now;
                 string name = null;
                 int amount = 0;
@@ -84,6 +88,8 @@ namespace Capgemini.PMESP.SpreadsheetImport.Services
                 {
                     // string value of one cell
                     string stringValue = ws.Cell(Convert.ToChar(j) + i.ToString()).Value.ToString();
+
+                    if (string.IsNullOrEmpty(stringValue)) empty++;
 
                     switch (j)
                     {
@@ -149,6 +155,12 @@ namespace Capgemini.PMESP.SpreadsheetImport.Services
                 if (errors.Count == 0)
                 {
                     products.Add(new Product(date, name, amount, unitPrice));
+                }
+
+                // check if row is empty and increment row amount
+                if (empty == 4)
+                {
+                    rows++;
                 }
             }
 
