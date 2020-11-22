@@ -26,17 +26,17 @@ namespace Capgemini.PMESP.SpreadsheetImport.Controllers
         public async Task<IActionResult> GetImports()
         {
             var imports = await _context.Imports.Include(i => i.Products).ToListAsync();
-            return Ok(imports.Select(s => new ImportViewModel(s)));
+            return Ok(imports.Select(s => new ImportViewModel(s, false)));
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetImportById(int id)
         {
-            var products = await _context.Products.Where(p => p.Import.Id == id).ToListAsync();
+            var import = await _context.Imports.Include(i => i.Products).FirstOrDefaultAsync(f => f.Id == id);
 
-            if (products.Count > 0)
+            if (import != null  && import.Products.Count > 0)
             {
-                return Ok(products.Select(s => new ProductViewModel(s)));
+                return Ok(new ImportViewModel(import, true));
             }
 
             return NotFound();

@@ -25,21 +25,28 @@ namespace Capgemini.PMESP.SpreadsheetImport.Services
             var products = new List<Product>();
             var errors = new List<ImportError>();
 
-            using (XLWorkbook wb = new XLWorkbook(file.OpenReadStream()))
+            try
             {
-                var worksheet = wb.Worksheet(1);
-
-                bool isValid = ValidateSpreadsheet(worksheet, products, errors);
-
-                if (isValid)
+                using (XLWorkbook wb = new XLWorkbook(file.OpenReadStream()))
                 {
-                    await SaveImportAsync(products);
-                    return new ImportResponse { Success = true };
+                    var worksheet = wb.Worksheet(1);
+
+                    bool isValid = ValidateSpreadsheet(worksheet, products, errors);
+
+                    if (isValid)
+                    {
+                        await SaveImportAsync(products);
+                        return new ImportResponse { Success = true };
+                    }
+                    else
+                    {
+                        return new ImportResponse { Success = false, Errors = errors };
+                    }
                 }
-                else
-                {
-                    return new ImportResponse { Success = false, Errors = errors };
-                }
+            }
+            catch (Exception)
+            {
+                throw new Exception("Extensão de arquivo não suportada");
             }
         }
 
@@ -54,15 +61,18 @@ namespace Capgemini.PMESP.SpreadsheetImport.Services
             foreach (var product in products)
             {
                 product.Import = import;
-                
+
                 _context.Products.Add(product);
 
                 await _context.SaveChangesAsync();
             }
+
+            return;
         }
 
         private bool ValidateSpreadsheet(IXLWorksheet ws, List<Product> products, List<ImportError> errors)
         {
+            // i = 2 --> first row after header
             for (int i = 2; i <= ws.RowsUsed().Count(); i++)
             {
                 DateTime date = DateTime.Now;
@@ -72,6 +82,7 @@ namespace Capgemini.PMESP.SpreadsheetImport.Services
 
                 for (int j = 'A'; j <= 'D'; j++)
                 {
+                    // string value of one cell
                     string stringValue = ws.Cell(Convert.ToChar(j) + i.ToString()).Value.ToString();
 
                     switch (j)
@@ -91,7 +102,7 @@ namespace Capgemini.PMESP.SpreadsheetImport.Services
                                 errors.Add(new ImportError(i.ToString(), Convert.ToChar(j) + i.ToString(), "Formato de data inválido."));
                             }
                             break;
-                            
+
                         case 'B':
                             if (stringValue.Length <= 50 && stringValue.Length > 0)
                             {
@@ -145,7 +156,7 @@ namespace Capgemini.PMESP.SpreadsheetImport.Services
             {
                 return true;
             }
-            
+
             return false;
         }
     }
